@@ -388,7 +388,3 @@ def debug_engine():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host=config.API_HOST, port=config.API_PORT)
-        engine._counter = 0
-        return {"status": "reset", "message": "System reset to clean state"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
