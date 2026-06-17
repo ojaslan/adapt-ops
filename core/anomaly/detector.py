@@ -93,7 +93,7 @@ class ZScoreDetector:
         return float(abs(value - mean) / std)
 
 
-class PipelineAnomalyDetector:
+class AnomalyDetector:
     def __init__(self):
         self.zscore = {
             "build_duration": ZScoreDetector(window=30),
