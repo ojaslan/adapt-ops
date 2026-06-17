@@ -180,3 +180,4 @@ class AnomalyDetector:
             }
             for e in self.event_history[-n:]
         ]
+    AnomalyDetector = PipelineAnomalyDetector
