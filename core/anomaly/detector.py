@@ -4,6 +4,7 @@ from typing import List, Optional, Dict, Tuple
 from enum import Enum
 from collections import deque
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +65,16 @@ class AnomalyEvent:
     @property
     def should_trigger_healing(self) -> bool:
         return self.severity.value >= AnomalySeverity.MEDIUM.value
+
+    def to_dict(self) -> Dict:
+        return {
+            "type": self.anomaly_type.value,
+            "severity": self.severity.name,
+            "score": round(self.score, 4),
+            "affected_metrics": self.affected_metrics,
+            "description": self.description,
+            "urgency": self.recommended_urgency
+        }
 
 
 class ZScoreDetector:

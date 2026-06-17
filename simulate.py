@@ -65,19 +65,39 @@ def flaky_surge():
     )
 
 
-def run(rounds=200):
-    print("=" * 60)
+def slow_builds():
+    """Build time regression scenario."""
+    return PipelineMetrics(
+        timestamp=time.time(),
+        build_duration_secs=random.gauss(500, 80),
+        test_pass_rate=random.uniform(0.75, 0.90),
+        failure_rate=random.uniform(0.05, 0.15),
+        queue_depth=random.randint(8, 15),
+        cpu_utilization=random.uniform(0.60, 0.80),
+        memory_utilization=random.uniform(0.55, 0.75),
+        deploy_success_rate=random.uniform(0.70, 0.85),
+        flaky_test_count=random.randint(1, 3),
+        retry_count=random.randint(0, 2)
+    )
+
+
+def run(rounds=250):
+    print("=" * 70)
     print("  ADAPT-OPS — Self-Healing Pipeline Simulator")
-    print("=" * 60)
+    print("=" * 70)
 
     engine = AdaptOpsOrchestrator(cooldown_secs=0.0, min_severity=2)
 
     scenarios = [
-        ("NORMAL",    normal_metrics,     0.65),
+        ("NORMAL",    normal_metrics,     0.60),
         ("FAILURE",   failure_spike,      0.12),
-        ("RESOURCE",  resource_exhaustion, 0.12),
-        ("FLAKY",     flaky_surge,        0.11),
+        ("RESOURCE",  resource_exhaustion, 0.10),
+        ("FLAKY",     flaky_surge,        0.10),
+        ("SLOW",      slow_builds,        0.08),
     ]
+
+    decision_count = 0
+    success_count = 0
 
     for i in range(rounds):
         names, funcs, weights = zip(*scenarios)
@@ -92,12 +112,18 @@ def run(rounds=200):
         decision = engine.ingest(m)
 
         if decision and i >= 40:
-            icon = "✓" if decision.outcome and decision.outcome.success > 0.5 else "✗"
+            decision_count += 1
+            is_success = decision.outcome and decision.outcome.success > 0.5
+            if is_success:
+                success_count += 1
+            
+            icon = "✓" if is_success else "✗"
+            reward = decision.outcome.reward if decision.outcome else 0
             print(
                 f"  [{i:3d}] {icon}  "
-                f"{decision.anomaly.anomaly_type.value:<28}"
-                f"→  {decision.selected_action.value:<30}"
-                f"reward={decision.outcome.reward:.3f}"
+                f"{decision.anomaly.anomaly_type.value:<28} "
+                f"→  {decision.selected_action.value:<25} "
+                f"reward={reward:.3f}"
             )
 
     # Final summary
@@ -105,25 +131,30 @@ def run(rounds=200):
     mab    = health["mab_summary"]
 
     print()
-    print("=" * 60)
+    print("=" * 70)
     print("  RESULTS — WHAT THE SYSTEM LEARNED:")
-    print("=" * 60)
-    print(f"  Metrics processed  : {health['metrics_processed']}")
-    print(f"  Anomalies detected : {health['anomalies_detected']}")
-    print(f"  Healings triggered : {health['healings_triggered']}")
-    print(f"  Success rate       : {health['heal_success_rate']:.1%}")
+    print("=" * 70)
+    print(f"  Total rounds          : {rounds}")
+    print(f"  Metrics processed     : {health['metrics_processed']}")
+    print(f"  Anomalies detected    : {health['anomalies_detected']}")
+    print(f"  Healings triggered    : {health['healings_triggered']}")
+    print(f"  Successful healings   : {health['successful_healings']}")
+    print(f"  Overall success rate  : {health['heal_success_rate']:.1%}")
+    print(f"  Uptime                : {health['uptime_secs']}s")
     print()
-    print("  ACTION RANKINGS (best → worst):")
+    print("  TOP PERFORMING ACTIONS (by avg reward):")
     print()
 
     arms = sorted(mab["arms"], key=lambda x: x["avg_reward"], reverse=True)
     for rank, arm in enumerate(arms, 1):
-        bar = "█" * int(arm["avg_reward"] * 20)
-        print(f"  {rank}. {arm['action']:<30} avg={arm['avg_reward']:.3f}  {bar}")
+        bar = "█" * int(arm["avg_reward"] * 25)
+        print(f"  {rank}. {arm['action']:<30} avg={arm['avg_reward']:.3f}  pulls={arm['pulls']:<4}  {bar}")
 
     print()
-    print("=" * 60)
+    print("=" * 70)
+    print(f"  ✓ Simulation complete. MAB learned from {decision_count} decisions.")
+    print("=" * 70)
 
 
 if __name__ == "__main__":
-    run(rounds=200)
+    run(rounds=250)
